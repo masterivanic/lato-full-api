@@ -8,6 +8,7 @@ from lato_project.commands.command import CompleteTodo
 from lato_project.commands.command import CreateTodo
 from lato_project.domain.todo import TodoModel
 from lato_project.domain.todo_read import TodoReadModel
+from lato_project.events import TodoWasCompleted
 from lato_project.queries.query import GetAllTodos
 from lato_project.queries.query import GetSomeTodos
 from lato_project.repositories.todo_repo import TodoRepository
@@ -43,7 +44,7 @@ def handler_complete_todo(
 ):
     a_todo = repo.get_by_id(command.todo_id)
     a_todo.mark_as_completed(when=now)
-    ctx.publish(CompleteTodo(todo_id=a_todo.id))
+    ctx.publish(TodoWasCompleted(todo_id=a_todo.id))  # publish event
 
 
 @app.handler(GetAllTodos)
