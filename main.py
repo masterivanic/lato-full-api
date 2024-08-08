@@ -1,69 +1,55 @@
+from collections.abc import Callable
 from datetime import datetime
-from typing import List
+from typing import Any
 
 from lato import Application
 from lato import TransactionContext
 
-from lato_project.commands.command import CompleteTodo
-from lato_project.commands.command import CreateTodo
-from lato_project.domain.todo import TodoModel
-from lato_project.domain.todo_read import TodoReadModel
-from lato_project.events import TodoWasCompleted
-from lato_project.queries.query import GetAllTodos
-from lato_project.queries.query import GetSomeTodos
-from lato_project.repositories.todo_repo import TodoRepository
+from counter import analytics
+from counter import TodoCounter
+from notification import notification
+from notification import NotificationService
+from todo import app
+from todo import TodoRepository
 
 
-app = Application(name="todos")
-
-
-def todo_model_to_read_model(todo: TodoModel, now: datetime) -> TodoReadModel:
-    return TodoReadModel(
-        id=todo.id,
-        title=todo.title,
-        description=todo.description,
-        is_due=todo.is_due(now),
-        is_completed=todo.is_completed,
+def create_application() -> Application:
+    _app = Application(
+        "Lato",
+        todo_repository=TodoRepository(),
+        notification_service=NotificationService(),
+        todos_counter=TodoCounter(),
     )
+    _app.include_submodule(app)
+    _app.include_submodule(notification)
+    _app.include_submodule(analytics)
 
+    @_app.on_enter_transaction_context
+    def on_enter_transaction_context(ctx: TransactionContext):
+        print("starting transation...")
+        ctx.set_dependencies(now=datetime.now())
 
-@app.handler(CreateTodo)
-def handler_create_todo(command: CreateTodo, repo: TodoRepository):
-    new_todo = TodoModel(
-        id=command.todo_id,
-        title=command.title,
-        description=command.description,
-        due_at=command.due_at,
-    )
-    repo.add(new_todo)
+    @_app.on_exit_transaction_context
+    def on_exit_transation_context(ctx: TransactionContext, exception=None):
+        print("ending transation...")
 
+    @_app.transaction_middleware
+    def logging_middleware(ctx: TransactionContext, call_next: Callable) -> Any:
+        handler = ctx.current_handler
+        message_name = ctx.get_dependency("message").__class__.__name__
+        handler_name = f"{handler.source}.{handler.fn.__name__}"
+        print(f"Executing {handler_name}({message_name})")
+        result = call_next()
+        print(f"Result from {handler_name}: {result}")
+        return result
 
-@app.handler(CompleteTodo)
-def handler_complete_todo(
-    command: CompleteTodo, repo: TodoRepository, ctx: TransactionContext, now: datetime
-):
-    a_todo = repo.get_by_id(command.todo_id)
-    a_todo.mark_as_completed(when=now)
-    ctx.publish(TodoWasCompleted(todo_id=a_todo.id))  # publish event
-
-
-@app.handler(GetAllTodos)
-def get_all_todos(
-    query: GetAllTodos, repo: TodoRepository, now: datetime
-) -> List[TodoModel]:
-    result = repo.get_all()
-    return [todo_model_to_read_model(todo, now) for todo in result]
-
-
-@app.handler(GetSomeTodos)
-def get_some_todos(query: GetSomeTodos, repo: TodoRepository, now: datetime):
-    if query.completed is None:
-        result = repo.get_all()
-    else:
-        result = (
-            repo.get_all_completed()
-            if query.completed
-            else repo.get_all_not_completed()
+    @_app.transaction_middleware
+    def analytics_middleware(ctx: TransactionContext, call_next: Callable) -> Any:
+        result = call_next()
+        todos_counter = ctx.get_dependency(TodoCounter)
+        print(
+            f" todos stats: {todos_counter.completed_todos}/{todos_counter.created_todos}"
         )
+        return result
 
-    return [todo_model_to_read_model(todo, now) for todo in result]
+    return _app

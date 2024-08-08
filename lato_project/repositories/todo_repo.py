@@ -6,7 +6,7 @@ from lato_project.domain.todo import TodoModel
 
 class TodoRepository:
     def __init__(self) -> None:
-        self._items = List[TodoModel] = []
+        self._items: List[TodoModel] = []
 
     def add(self, item: TodoModel) -> None:
         self._items.append(item)

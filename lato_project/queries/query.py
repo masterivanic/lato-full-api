@@ -6,7 +6,8 @@ from lato import Query
 class GetAllTodos(Query): ...
 
 
-class GetSomeTodos(Query): ...
+class GetSomeTodos(Query):
+    completed: bool
 
 
 class GetTodoDetails(Query):
