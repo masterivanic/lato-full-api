@@ -1,6 +1,5 @@
 from datetime import datetime
 from typing import List
-from uuid import UUID
 
 from lato import Application
 from lato import TransactionContext
@@ -11,7 +10,8 @@ from lato_project.domain.todo import TodoModel
 from lato_project.domain.todo_read import TodoReadModel
 from lato_project.events import TodoWasCompleted
 from lato_project.queries.query import GetAllTodos
-from lato_project.queries.query import GetSomeTodos, GetTodoDetails
+from lato_project.queries.query import GetSomeTodos
+from lato_project.queries.query import GetTodoDetails
 from lato_project.repositories.todo_repo import TodoRepository
 
 
@@ -69,8 +69,8 @@ def get_some_todos(query: GetSomeTodos, repo: TodoRepository, now: datetime):
 
     return [todo_model_to_read_model(todo, now) for todo in result]
 
+
 @app.handler(GetTodoDetails)
 def get_todo_details(query: GetTodoDetails, repo: TodoRepository) -> TodoModel:
     todo_details = repo.get_by_id(item_id=query.todo_id)
     return todo_details
-
