@@ -1,7 +1,9 @@
 from uuid import UUID
-from main import create_application
-from lato_project.commands.command import CreateTodo, CompleteTodo
+
+from lato_project.commands.command import CompleteTodo
+from lato_project.commands.command import CreateTodo
 from lato_project.queries.query import GetAllTodos
+from main import create_application
 
 app = create_application()
 
